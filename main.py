@@ -1,37 +1,28 @@
 import networkx as nx
 import plotly.graph_objects as go
 import pandas as pd
-import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import numpy as np
-num_nodes = 1000
+import matplotlib.pyplot as plt
 
-# Создайте уникальные узлы
-nodes = [f"Node_{i}" for i in range(num_nodes)]
+# Чтение данных из CSV файлов
+edges_df = pd.read_csv('edges.csv')  # Файл с рёбрами
+nodes_df = pd.read_csv('nodes.csv')  # Файл с узлами
 
-# Создайте случайные связи
-edges = []
-np.random.seed(42)  # Для воспроизводимости результатов
-for _ in range(num_nodes * 2):  # Установите количество связей
-    source = np.random.choice(nodes)
-    target = np.random.choice(nodes)
-    while source == target:  # Убедитесь, что связь не само-ссылка
-        target = np.random.choice(nodes)
-    weight = np.random.randint(1, 10)  # Вес ребра от 1 до 10
-    edges.append([source, target, weight])
+# Создание графа на основе данных рёбер
+G = nx.from_pandas_edgelist(edges_df, 'Source', 'Target', ['Weight'])
 
-# Создайте DataFrame и сохраните в CSV
-df = pd.DataFrame(edges, columns=['Source', 'Target', 'Weight'])
-df.to_csv('file.csv', index=False)
-# Загрузка данных и создание графа
-df = pd.read_csv('file.csv')
-G = nx.from_pandas_edgelist(df, 'Source', 'Target', ['Weight'])
+# Добавление узлов с атрибутами
+for _, row in nodes_df.iterrows():
+    G.add_node(row['Node'], **row.to_dict())
 
-# Поиск компонент связности
+# Находим компоненты связности
 components = list(nx.connected_components(G))
-component_map = {node: i for i, comp in enumerate(components) for node in comp}
+component_map = {}
+for i, comp in enumerate(components):
+    for node in comp:
+        component_map[node] = i
 
-# Генерация цветов
+# Генерация уникальных цветов для каждого компонента
 unique_components = len(components)
 colors = list(mcolors.TABLEAU_COLORS.values())
 if unique_components > len(colors):
@@ -39,79 +30,96 @@ if unique_components > len(colors):
     colors = [mcolors.to_hex(cmap(i / unique_components)) for i in range(unique_components)]
 component_colors = {i: colors[i % len(colors)] for i in range(unique_components)}
 
-# Координаты узлов
+# Отладка: Вывод цветов для проверки
+print("Component colors mapping:")
+for i, color in component_colors.items():
+    print(f"Component {i}: {color}")
+
+# Получите координаты узлов для визуализации
 pos = nx.spring_layout(G, dim=3, seed=42)
 
-# 3D график
-fig_3d = go.Figure()
-
-# Добавление рёбер
+# Генерация 3D графика
 edge_x = []
 edge_y = []
 edge_z = []
-for e in df.itertuples():
+for e in edges_df.itertuples():
     x0, y0, z0 = pos[e.Source]
     x1, y1, z1 = pos[e.Target]
     edge_x.extend([x0, x1, None])
     edge_y.extend([y0, y1, None])
     edge_z.extend([z0, z1, None])
 
+node_x = []
+node_y = []
+node_z = []
+node_text = []
+node_color = []
+for node in G.nodes():
+    x, y, z = pos[node]
+    node_x.append(x)
+    node_y.append(y)
+    node_z.append(z)
+    node_text.append(node)
+    node_color.append(component_colors[component_map[node]])
+
+fig_3d = go.Figure()
+
+# Добавляем рёбра в 3D график
 fig_3d.add_trace(go.Scatter3d(
     x=edge_x,
     y=edge_y,
     z=edge_z,
     mode='lines',
-    line=dict(width=2, color='#888'),
+    line=dict(width=1, color='#888'),
+    opacity=0.7
 ))
 
-# Добавление узлов
-node_x, node_y, node_z = zip(*[pos[node] for node in G.nodes()])
-node_color = [component_colors[component_map[node]] for node in G.nodes()]
-
+# Добавляем узлы в 3D график
 fig_3d.add_trace(go.Scatter3d(
     x=node_x,
     y=node_y,
     z=node_z,
     mode='markers+text',
-    marker=dict(size=8, color=node_color),
-    text=list(G.nodes()),
-    textposition='bottom center'
+    marker=dict(size=5, color=node_color),
+    text=node_text,
+    textposition='bottom center',
+    opacity=0.9
 ))
 
 fig_3d.update_layout(
     scene=dict(
         xaxis_title='X',
         yaxis_title='Y',
-        zaxis_title='Z'
+        zaxis_title='Z',
     ),
     margin=dict(r=10, l=10, b=10, t=10),
     autosize=True
 )
 
+# Сохранение графика в HTML
 fig_3d.write_html('3d_graph_plotly_clustering_interactive.html')
 
-# 2D график
+# Генерация 2D графика
 fig_2d = go.Figure()
 
-# Добавление рёбер
-edge_x_2d = [pos[e.Source][0] for e in df.itertuples()] + [None]
-edge_y_2d = [pos[e.Source][1] for e in df.itertuples()] + [None]
-
+# Добавляем рёбра в 2D график
 fig_2d.add_trace(go.Scatter(
-    x=edge_x_2d,
-    y=edge_y_2d,
+    x=[pos[e.Source][0] for e in edges_df.itertuples()] + [None],
+    y=[pos[e.Source][1] for e in edges_df.itertuples()] + [None],
     mode='lines',
-    line=dict(width=2, color='#888'),
+    line=dict(width=1, color='#888'),
+    opacity=0.5
 ))
 
-# Добавление узлов
+# Добавляем узлы в 2D график
 fig_2d.add_trace(go.Scatter(
     x=node_x,
     y=node_y,
     mode='markers+text',
-    marker=dict(size=8, color=node_color),
-    text=list(G.nodes()),
-    textposition='bottom center'
+    marker=dict(size=5, color=node_color),
+    text=node_text,
+    textposition='bottom center',
+    opacity=0.7
 ))
 
 fig_2d.update_layout(
@@ -121,4 +129,5 @@ fig_2d.update_layout(
     autosize=True
 )
 
+# Сохранение графика в HTML
 fig_2d.write_html('2d_graph_plotly_clustering.html')
