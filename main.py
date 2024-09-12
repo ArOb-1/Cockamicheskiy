@@ -1,8 +1,8 @@
 import networkx as nx
 import plotly.graph_objects as go
-import pandas as pd
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Чтение данных из CSV файлов
 edges_df = pd.read_csv('edges.csv')  # Файл с рёбрами
@@ -97,7 +97,7 @@ fig_3d.update_layout(
 )
 
 # Сохранение графика в HTML
-fig_3d.write_html('3d_graph_plotly_clustering_interactive.html')
+fig_3d.write_html('3d_graph_plotly_clustering_interactive.html', include_plotlyjs='cdn', post_script='')
 
 # Генерация 2D графика
 fig_2d = go.Figure()
