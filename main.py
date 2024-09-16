@@ -1,3 +1,11 @@
+"""
+@file 
+@brief Визуализация графа
+
+В этом файле реализуется чтение данных о графе из CSV файлов и его визуализация в 3D и 2D виде.
+
+@author команда белых
+"""
 import networkx as nx
 import plotly.graph_objects as go
 import matplotlib.colors as mcolors
